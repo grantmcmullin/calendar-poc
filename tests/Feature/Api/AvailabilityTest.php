@@ -74,4 +74,14 @@ class AvailabilityTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('message', 'No calendar integration is connected for this tenant.');
     }
+
+    public function test_missing_booking_settings_is_rejected(): void
+    {
+        $bare = Tenant::factory()->create();
+        Integration::factory()->for($bare)->create();
+
+        $this->getJson("/api/v1/tenants/{$bare->id}/availability?from=2026-09-14&to=2026-09-14")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Booking settings are not configured for this tenant.');
+    }
 }
