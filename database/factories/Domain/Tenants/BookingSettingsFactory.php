@@ -20,4 +20,11 @@ class BookingSettingsFactory extends Factory
             'meeting_length_minutes' => 30,
         ];
     }
+
+    public function withoutTenant(): static
+    {
+        return $this->state([
+            'tenant_id' => 1,
+        ]);
+    }
 }
