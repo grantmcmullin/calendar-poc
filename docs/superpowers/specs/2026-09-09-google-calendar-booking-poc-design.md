@@ -107,8 +107,8 @@ used only for slot-grid math; lead timezone only for display/notifications.
 ## 5. Data model
 
 ### `tenants`
-POC stand-in for al-app tenants. `id`, `name`, `timezone` (IANA string), timestamps.
-Seeded with one demo tenant.
+POC stand-in for al-app tenants. `id`, `name`, `email` (recipient for tenant-side
+notifications), `timezone` (IANA string), timestamps. Seeded with one demo tenant.
 
 ### `integrations`
 Mirrors al-app's table so the code lifts across. `id`, `tenant_id`, `type` (string:
@@ -325,8 +325,9 @@ The HTTP layer fetches busy blocks once per request via
 ## 9. Booking lifecycle
 
 ### `CreateBookingAction`
-1. `DB::transaction` with a per-tenant advisory lock
-   (`GET_LOCK("booking:tenant:{id}")`, released after commit): re-validate the slot —
+1. Under a per-tenant atomic lock (Laravel `Cache::lock("booking:tenant:{id}")` —
+   same serialization guarantee as a MySQL advisory lock, and portable to the SQLite
+   test database), re-validate the slot —
    grid-valid for current settings, no overlapping confirmed booking, **and** a fresh
    provider free/busy probe (`availability()->busyBlocks(...)` for just the slot
    window) confirms the tenant's calendar is still clear — then insert the `bookings`
