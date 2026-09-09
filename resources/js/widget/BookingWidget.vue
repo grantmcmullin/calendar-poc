@@ -84,6 +84,13 @@ const slotsByDay = computed(() => {
     return map;
 });
 
+// The day strip must key itself in the same space as `slotsByDay` (viewer tz),
+// not the browser's local calendar — otherwise switching the timezone select
+// desyncs the dots/lookup from the actual grouping (see task-14 review).
+const weekDayEntries = computed(() =>
+    weekDays.value.map((date) => ({ date, key: dayKeyFor(date.toISOString(), viewerTz.value) }))
+);
+
 const selectedSlots = computed(() => (selectedDay.value ? slotsByDay.value[selectedDay.value] ?? [] : []));
 
 function formatSlotTime(iso: string): string {
@@ -103,7 +110,19 @@ async function loadWeek() {
 
 onMounted(loadWeek);
 
+// Week-nav and day-strip interactions can happen while a slot is pending
+// (stage 'form'/'submitting'). Any such interaction abandons that pending
+// selection and returns to 'pick' so InviteeForm never stays mounted against
+// a stale selectedSlot (see task-14 review).
+function resetPendingSelection() {
+    if (stage.value === 'form' || stage.value === 'submitting') {
+        stage.value = 'pick';
+        selectedSlot.value = null;
+    }
+}
+
 function prevWeek() {
+    resetPendingSelection();
     const d = new Date(weekStart.value);
     d.setDate(d.getDate() - 7);
     weekStart.value = d;
@@ -112,6 +131,7 @@ function prevWeek() {
 }
 
 function nextWeek() {
+    resetPendingSelection();
     const d = new Date(weekStart.value);
     d.setDate(d.getDate() + 7);
     weekStart.value = d;
@@ -120,6 +140,7 @@ function nextWeek() {
 }
 
 function pickDay(dateStr: string) {
+    resetPendingSelection();
     selectedDay.value = dateStr;
 }
 
@@ -202,24 +223,24 @@ async function handleSubmit(invitee: InviteeInput) {
 
             <div class="mb-4 grid grid-cols-7 gap-1">
                 <button
-                    v-for="day in weekDays"
-                    :key="toDateStr(day)"
+                    v-for="entry in weekDayEntries"
+                    :key="entry.key"
                     type="button"
-                    :data-test="`day-${toDateStr(day)}`"
+                    :data-test="`day-${entry.key}`"
                     class="relative flex flex-col items-center gap-1 rounded-widget px-1 py-2 text-xs"
                     :class="
-                        selectedDay === toDateStr(day)
+                        selectedDay === entry.key
                             ? 'bg-primary text-primary-contrast'
                             : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                     "
-                    @click="pickDay(toDateStr(day))"
+                    @click="pickDay(entry.key)"
                 >
-                    <span>{{ day.getDate() }}</span>
+                    <span>{{ Number(entry.key.slice(-2)) }}</span>
                     <span
-                        v-if="(slotsByDay[toDateStr(day)] ?? []).length"
+                        v-if="(slotsByDay[entry.key] ?? []).length"
                         data-test="day-has-slots"
                         class="h-1 w-1 rounded-full"
-                        :class="selectedDay === toDateStr(day) ? 'bg-primary-contrast' : 'bg-primary'"
+                        :class="selectedDay === entry.key ? 'bg-primary-contrast' : 'bg-primary'"
                     ></span>
                 </button>
             </div>
