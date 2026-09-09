@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->validateCsrfTokens(except: ['demo/webhook-sink']);
+        $middleware->validateCsrfTokens(except: ['demo/webhook-sink', 'manage/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(fn (SlotConflictException $e) => response()->json(['message' => $e->getMessage() ?: 'This slot is no longer available.'], 409));
