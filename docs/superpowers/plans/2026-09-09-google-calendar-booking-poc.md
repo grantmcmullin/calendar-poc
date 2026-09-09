@@ -3184,7 +3184,12 @@ class ReconcileBookingsTest extends TestCase
     {
         $booking = Booking::factory()->for($tenant)->create(['starts_at' => now()->addDays(2), 'ends_at' => now()->addDays(2)->addMinutes(30)]);
         $mock = app(CalendarMockService::class);
-        $mock->createdEvents[$booking->provider_event_id] = \Mockery::mock(\App\Domain\Calendar\Data\CalendarEventDraftData::class); // exists() only checks the key
+        // exists() only checks the key; DTOs are final so build a real (cheap) draft rather than mocking.
+        $mock->createdEvents[$booking->provider_event_id] = new \App\Domain\Calendar\Data\CalendarEventDraftData(
+            summary: 'x', description: 'x',
+            start: \Carbon\CarbonImmutable::parse($booking->starts_at), end: \Carbon\CarbonImmutable::parse($booking->ends_at),
+            timezone: 'UTC', attendeeEmail: 'x@example.com', attendeeName: 'x', bookingUuid: $booking->uuid,
+        );
 
         return $booking;
     }
