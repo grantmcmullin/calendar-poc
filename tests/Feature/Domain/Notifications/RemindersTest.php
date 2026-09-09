@@ -67,4 +67,14 @@ class RemindersTest extends TestCase
             new \App\Domain\Notifications\Data\NotificationMessageData('Jane', 'jane@example.com', null, 'x', []),
         );
     }
+
+    public function test_booking_notification_mail_renders_lines(): void
+    {
+        $mail = new BookingNotificationMail(new \App\Domain\Notifications\Data\NotificationMessageData('Jane Doe', 'jane@example.com', null, 'Test subject', ['Line one', 'Line two']));
+
+        $rendered = $mail->render();
+
+        $this->assertStringContainsString('Line one', $rendered);
+        $this->assertStringContainsString('Line two', $rendered);
+    }
 }
