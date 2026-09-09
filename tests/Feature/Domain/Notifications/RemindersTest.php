@@ -45,6 +45,28 @@ class RemindersTest extends TestCase
         $this->assertNull($future->fresh()->sent_at);
     }
 
+    public function test_one_failing_reminder_does_not_abort_the_batch_and_reverts_its_sent_at(): void
+    {
+        $booking = Booking::factory()->create();
+        $failing = Reminder::factory()->for($booking)->create(['send_at' => now()->subMinute()]);
+        $succeeding = Reminder::factory()->for($booking)->create(['send_at' => now()->subMinute()]);
+
+        $this->mock(BookingNotifier::class, function ($mock) use ($failing, $succeeding) {
+            $mock->shouldReceive('sendReminder')
+                ->once()
+                ->with(\Mockery::on(fn (Reminder $r) => $r->id === $failing->id))
+                ->andThrow(new \RuntimeException('channel down'));
+            $mock->shouldReceive('sendReminder')
+                ->once()
+                ->with(\Mockery::on(fn (Reminder $r) => $r->id === $succeeding->id));
+        });
+
+        (new SendDueRemindersJob())->handle();
+
+        $this->assertNull($failing->fresh()->sent_at);
+        $this->assertNotNull($succeeding->fresh()->sent_at);
+    }
+
     public function test_confirmation_mails_both_parties_and_cancellation_mails_non_initiator(): void
     {
         Mail::fake();

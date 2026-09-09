@@ -2,6 +2,7 @@
 
 namespace App\Domain\Calendar\Services\Google;
 
+use Throwable;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use App\Domain\Integrations\Integration;
@@ -94,7 +95,14 @@ class CalendarAuthGoogleService implements CalendarAuthServiceContract
 
     public function revoke(Integration $integration): void
     {
-        Http::asForm()->post(self::REVOKE_URL, ['token' => $integration->api_token]);
         // Best-effort: a failed revoke must not block disconnecting locally (spec §7).
+        try {
+            Http::asForm()->post(self::REVOKE_URL, ['token' => $integration->api_token]);
+        } catch (Throwable $exception) {
+            logger()->warning('[Calendar] [Google] Revoke request failed (best-effort)', [
+                'integration_id' => $integration->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 }

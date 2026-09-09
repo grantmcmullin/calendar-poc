@@ -2,6 +2,7 @@
 
 namespace App\Domain\Bookings\Actions;
 
+use Throwable;
 use App\Domain\Bookings\Booking;
 use App\Domain\Webhooks\Enums\WebhookEvent;
 use App\Domain\Bookings\Enums\BookingStatus;
@@ -36,12 +37,32 @@ class CancelBookingAction
         $integration = $booking->tenant->integration;
 
         if ($source !== CancellationSource::Provider && $integration !== null && $booking->provider_event_id !== null) {
-            $this->manager->for($integration)->events()->delete($integration, $booking->provider_event_id);
+            try {
+                $this->manager->for($integration)->events()->delete($integration, $booking->provider_event_id);
+            } catch (Throwable $exception) {
+                // A stale Google event is less harmful than losing the booking.canceled webhook
+                // and reminder cleanup below — keep going instead of aborting the cancellation.
+                logger()->error('[Bookings] Failed to delete provider event on cancel', [
+                    'booking_id' => $booking->id,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
         }
 
         $this->reminders->cancelFor($booking);
-        $this->notifier->sendCancellation($booking, $source);
+
+        // Webhook before mail: webhooks are the durable, retried channel — a synchronous mail
+        // failure must not swallow the UA-app's booking.canceled contract (see task-14 review).
         $this->webhooks->execute($booking->refresh(), WebhookEvent::BookingCanceled);
+
+        try {
+            $this->notifier->sendCancellation($booking, $source);
+        } catch (Throwable $exception) {
+            logger()->error('[Bookings] Failed to send cancellation notification', [
+                'booking_id' => $booking->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
 
         return $booking;
     }

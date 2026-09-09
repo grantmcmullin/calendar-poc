@@ -84,4 +84,16 @@ class AvailabilityTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('message', 'Booking settings are not configured for this tenant.');
     }
+
+    public function test_expired_provider_auth_with_no_refresh_token_returns_422(): void
+    {
+        config(['calendar.gateway' => 'provider']);
+        $tenant = Tenant::factory()->create(['timezone' => 'America/New_York']);
+        BookingSettings::factory()->for($tenant)->create();
+        Integration::factory()->for($tenant)->create(['refresh_token' => null, 'expires_at' => now()->subMinute()]);
+
+        $this->getJson("/api/v1/tenants/{$tenant->id}/availability?from=2026-09-14&to=2026-09-14")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Google authorization expired — reconnect the calendar integration.');
+    }
 }

@@ -96,6 +96,51 @@ class ManageBookingTest extends TestCase
         Queue::assertPushed(SendWebhookJob::class, 3); // created + canceled + created
     }
 
+    public function test_reschedule_to_an_occupied_slot_leaves_original_booking_untouched(): void
+    {
+        $booking = $this->book();
+        // Occupy the target reschedule slot with another confirmed booking.
+        Booking::factory()->for($this->tenant)->create([
+            'starts_at' => '2026-09-15T14:00:00Z',
+            'ends_at' => '2026-09-15T14:30:00Z',
+        ]);
+
+        $this->postJson("/manage/{$booking->manage_token}/reschedule", ['start_time' => '2026-09-15T14:00:00Z'])
+            ->assertStatus(409);
+
+        $booking->refresh();
+        $this->assertSame('confirmed', $booking->status);
+        $this->assertNotContains($booking->provider_event_id, app(CalendarMockService::class)->deletedEventIds);
+        Queue::assertPushed(SendWebhookJob::class, 1); // only the original booking.created; no booking.canceled
+    }
+
+    public function test_cancel_continues_when_provider_delete_fails(): void
+    {
+        $booking = $this->book();
+        app(CalendarMockService::class)->failDelete = true;
+
+        $this->postJson("/manage/{$booking->manage_token}/cancel")->assertOk()->assertJsonPath('status', 'canceled');
+
+        $booking->refresh();
+        $this->assertSame('canceled', $booking->status);
+        $this->assertSame(0, Reminder::whereNull('sent_at')->count());
+        Queue::assertPushed(SendWebhookJob::class, 2); // created + canceled despite provider delete failure
+    }
+
+    public function test_cancel_succeeds_and_dispatches_webhook_when_notifier_fails(): void
+    {
+        $booking = $this->book();
+        $this->mock(\App\Domain\Notifications\BookingNotifier::class, function ($mock) {
+            $mock->shouldReceive('sendCancellation')->andThrow(new \RuntimeException('mail down'));
+        });
+
+        $this->postJson("/manage/{$booking->manage_token}/cancel")->assertOk()->assertJsonPath('status', 'canceled');
+
+        $booking->refresh();
+        $this->assertSame('canceled', $booking->status);
+        Queue::assertPushed(SendWebhookJob::class, 2); // created + canceled despite notifier failure
+    }
+
     public function test_invalid_manage_token_is_404(): void
     {
         $this->postJson('/manage/not-a-real-token/cancel')->assertNotFound();

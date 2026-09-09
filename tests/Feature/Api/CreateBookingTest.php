@@ -115,6 +115,20 @@ class CreateBookingTest extends TestCase
             ->assertStatus(409);
     }
 
+    public function test_notifier_failure_does_not_block_webhook_dispatch(): void
+    {
+        Queue::fake();
+        $this->mock(\App\Domain\Notifications\BookingNotifier::class, function ($mock) {
+            $mock->shouldReceive('sendConfirmation')->andThrow(new \RuntimeException('mail down'));
+        });
+
+        $response = $this->postJson("/api/v1/tenants/{$this->tenant->id}/bookings", $this->payload());
+
+        $response->assertCreated();
+        $this->assertSame(1, Booking::count());
+        Queue::assertPushed(SendWebhookJob::class, 1); // booking.created still dispatched despite mail failure
+    }
+
     public function test_show_booking_by_uuid(): void
     {
         Mail::fake();

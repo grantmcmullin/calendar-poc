@@ -7,5 +7,6 @@ document.querySelectorAll('[data-booking-widget]').forEach((el) => {
         apiBase: el.dataset.apiBase,
         tracking: JSON.parse(el.dataset.tracking || '{}'),
         rescheduleToken: el.dataset.rescheduleToken || undefined,
+        invitee: el.dataset.invitee ? JSON.parse(el.dataset.invitee) : undefined,
     }).mount(el);
 });

@@ -97,8 +97,19 @@ class CreateBookingAction
         $booking->update(['provider_event_id' => $event->id, 'provider_event_link' => $event->link]);
 
         $this->reminders->scheduleFor($booking);
-        $this->notifier->sendConfirmation($booking);
+
+        // Webhook before mail: webhooks are the durable, retried channel — a synchronous mail
+        // failure must not swallow the UA-app's booking.created contract (see task-14 review).
         $this->webhooks->execute($booking, WebhookEvent::BookingCreated);
+
+        try {
+            $this->notifier->sendConfirmation($booking);
+        } catch (Throwable $exception) {
+            logger()->error('[Bookings] Failed to send confirmation notification', [
+                'booking_id' => $booking->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
 
         return $booking;
     }

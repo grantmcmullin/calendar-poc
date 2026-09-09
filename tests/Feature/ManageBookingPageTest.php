@@ -17,7 +17,9 @@ class ManageBookingPageTest extends TestCase
         $this->get("/manage/{$booking->manage_token}")->assertOk()
             ->assertSee($booking->tenant->name)
             ->assertSee('Cancel appointment')
-            ->assertSee('data-reschedule-token="'.$booking->manage_token.'"', false);
+            ->assertSee('data-reschedule-token="'.$booking->manage_token.'"', false)
+            ->assertSee('data-invitee=', false)
+            ->assertSee('"email":"'.$booking->lead_email.'"', false);
     }
 
     public function test_canceled_booking_shows_terminal_state_without_actions(): void

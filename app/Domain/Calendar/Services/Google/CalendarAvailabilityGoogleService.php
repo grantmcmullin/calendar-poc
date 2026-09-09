@@ -29,7 +29,7 @@ class CalendarAvailabilityGoogleService implements CalendarAvailabilityServiceCo
             $this->client->mapException($exception, 'busyBlocks');
         }
 
-        $calendar = $response->json("calendars.{$calendarId}", []);
+        $calendar = $response->json('calendars')[$calendarId] ?? [];
 
         if (filled($calendar['errors'] ?? [])) {
             throw new ProviderApiFailedException('Google freeBusy returned calendar errors: '.json_encode($calendar['errors']));

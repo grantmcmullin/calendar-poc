@@ -25,6 +25,8 @@ class CalendarMockService implements CalendarGatewayContract, CalendarAuthServic
 
     public bool $failExists = false;
 
+    public bool $failDelete = false;
+
     /** @var array<string, CalendarEventDraftData> */
     public array $createdEvents = [];
 
@@ -91,6 +93,10 @@ class CalendarMockService implements CalendarGatewayContract, CalendarAuthServic
 
     public function delete(Integration $integration, string $providerEventId): void
     {
+        if ($this->failDelete) {
+            throw new ProviderApiFailedException('Mock delete failure.');
+        }
+
         $this->deletedEventIds[] = $providerEventId;
     }
 

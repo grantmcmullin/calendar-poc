@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import BookingWidget from './BookingWidget.vue';
 
@@ -19,7 +19,18 @@ function fetchMock(responses: Array<{ status: number; body: unknown }>) {
 }
 
 describe('BookingWidget', () => {
-    beforeEach(() => vi.unstubAllGlobals());
+    // Pin the clock: weekStart is computed from the real clock, and the fixtures below
+    // (and the 3 original tests) were written for the week containing 2026-09-14 — without
+    // this, they break once the real date moves past that week (see task-14 review).
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-09-10T12:00:00Z'));
+        vi.unstubAllGlobals();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
 
     it('renders available time slots for the selected day', async () => {
         fetchMock([{ status: 200, body: slots }]);
@@ -128,5 +139,21 @@ describe('BookingWidget', () => {
         // InviteeForm must not stay mounted against a slot from the abandoned week.
         expect(wrapper.find('[data-test="first-name"]').exists()).toBe(false);
         expect(fetchFn).toHaveBeenCalledTimes(2);
+    });
+
+    it('prefills the invitee form when an invitee prop is passed (reschedule mode)', async () => {
+        fetchMock([{ status: 200, body: slots }]);
+        const invitee = { first_name: 'Jane', last_name: 'Doe', email: 'jane@example.com', phone: '+15550001111' };
+        const wrapper = mount(BookingWidget, {
+            props: { tenantId: 1, apiBase: '/api/v1', tracking: {}, rescheduleToken: 'tok-1', invitee },
+        });
+        await flushPromises();
+        await wrapper.find('[data-test="day-2026-09-14"]').trigger('click');
+        await wrapper.findAll('[data-test="slot"]')[0].trigger('click');
+
+        expect((wrapper.find('[data-test="first-name"]').element as HTMLInputElement).value).toBe('Jane');
+        expect((wrapper.find('[data-test="last-name"]').element as HTMLInputElement).value).toBe('Doe');
+        expect((wrapper.find('[data-test="email"]').element as HTMLInputElement).value).toBe('jane@example.com');
+        expect((wrapper.find('[data-test="phone"]').element as HTMLInputElement).value).toBe('+15550001111');
     });
 });

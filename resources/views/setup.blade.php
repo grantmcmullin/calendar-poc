@@ -64,6 +64,30 @@
                 @method('PUT')
 
                 <div>
+                    <label for="timezone" class="mb-1 block text-sm font-medium text-gray-700">Tenant timezone</label>
+                    @php
+                        $curatedTimezones = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'America/Phoenix'];
+                        $currentTimezone = old('timezone', $tenant->timezone ?? '');
+                        $timezoneOptions = collect($curatedTimezones)
+                            ->when(filled($currentTimezone), fn ($zones) => $zones->push($currentTimezone))
+                            ->unique()
+                            ->values();
+                    @endphp
+                    <select
+                        id="timezone"
+                        name="timezone"
+                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm sm:w-64"
+                    >
+                        @foreach ($timezoneOptions as $tz)
+                            <option value="{{ $tz }}" @selected($currentTimezone === $tz)>{{ $tz }}</option>
+                        @endforeach
+                    </select>
+                    @error('timezone')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
                     <span class="mb-2 block text-sm font-medium text-gray-700">Available days</span>
                     <div class="flex flex-wrap gap-4">
                         @foreach (\App\Domain\Tenants\Enums\Weekday::cases() as $day)

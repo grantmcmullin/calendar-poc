@@ -90,4 +90,14 @@ class CalendarAuthGoogleServiceTest extends TestCase
         $this->expectException(ProviderAuthExpiredException::class);
         app(CalendarAuthGoogleService::class)->refreshTokens($integration);
     }
+
+    public function test_revoke_swallows_connection_failures(): void
+    {
+        Http::fake(['oauth2.googleapis.com/revoke' => fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection refused.')]);
+        $integration = Integration::factory()->create();
+
+        app(CalendarAuthGoogleService::class)->revoke($integration);
+
+        $this->assertTrue(true); // no exception bubbled — disconnect must not be blocked
+    }
 }

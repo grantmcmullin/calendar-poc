@@ -23,6 +23,10 @@ class GoogleOAuthController extends Controller
 
     public function callback(Request $request, CalendarGatewayManager $manager): RedirectResponse
     {
+        if (filled($request->query('error'))) {
+            return redirect()->route('setup.show')->with('status', 'Google authorization was declined.');
+        }
+
         abort_unless(
             filled($request->query('state')) && $request->query('state') === session()->pull('calendar_oauth_state'),
             403,

@@ -36,6 +36,28 @@ class CalendarAvailabilityGoogleServiceTest extends TestCase
             && $r['timeMin'] === '2026-09-14T00:00:00+00:00');
     }
 
+    public function test_busy_blocks_are_found_for_calendar_ids_containing_dots(): void
+    {
+        // A dotted lookup key like "calendars.{$calendarId}" breaks for calendar ids that
+        // themselves contain dots (e.g. email-style ids) — see task-14 review.
+        Http::fake(['www.googleapis.com/calendar/v3/freeBusy' => Http::response([
+            'calendars' => ['tenant@example.com' => ['busy' => [
+                ['start' => '2026-09-14T14:00:00Z', 'end' => '2026-09-14T15:00:00Z'],
+            ]]],
+        ])]);
+        $integration = Integration::factory()->create(['data' => ['calendar_id' => 'tenant@example.com']]);
+
+        $blocks = app(CalendarAvailabilityGoogleService::class)->busyBlocks(
+            $integration,
+            CarbonImmutable::parse('2026-09-14T00:00:00Z'),
+            CarbonImmutable::parse('2026-09-15T00:00:00Z'),
+        );
+
+        $this->assertCount(1, $blocks);
+        $this->assertTrue($blocks[0]->start->equalTo('2026-09-14T14:00:00Z'));
+        Http::assertSent(fn ($r) => $r['items'] === [['id' => 'tenant@example.com']]);
+    }
+
     public function test_freebusy_calendar_errors_throw(): void
     {
         Http::fake(['www.googleapis.com/calendar/v3/freeBusy' => Http::response([

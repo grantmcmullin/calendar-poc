@@ -5,6 +5,12 @@
 @section('content')
     @php
         $isCanceled = $booking->status === \App\Domain\Bookings\Enums\BookingStatus::Canceled->value;
+        $inviteeData = [
+            'first_name' => $booking->lead_first_name,
+            'last_name' => $booking->lead_last_name,
+            'email' => $booking->lead_email,
+            'phone' => $booking->lead_phone,
+        ];
     @endphp
 
     <section class="rounded-lg border border-gray-200 bg-white p-6">
@@ -44,6 +50,7 @@
                         data-api-base="/api/v1"
                         data-tracking='@json($booking->tracking ?? [])'
                         data-reschedule-token="{{ $booking->manage_token }}"
+                        data-invitee='@json($inviteeData)'
                     ></div>
                 </div>
             </details>

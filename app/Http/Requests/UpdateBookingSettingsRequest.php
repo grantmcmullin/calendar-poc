@@ -18,6 +18,7 @@ class UpdateBookingSettingsRequest extends FormRequest
             'office_starts_at' => ['required', 'date_format:H:i'],
             'office_ends_at' => ['required', 'date_format:H:i', 'after:office_starts_at'],
             'meeting_length_minutes' => ['required', Rule::in(MeetingLength::values())],
+            'timezone' => ['required', 'timezone'],
         ];
     }
 }

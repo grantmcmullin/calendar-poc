@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Domain\Calendar\Exceptions\SlotConflictException;
 use App\Domain\Calendar\Exceptions\ProviderApiFailedException;
+use App\Domain\Calendar\Exceptions\ProviderAuthExpiredException;
 use App\Domain\Calendar\Exceptions\ProviderNotConfiguredException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -22,4 +23,5 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (SlotConflictException $e) => response()->json(['message' => $e->getMessage() ?: 'This slot is no longer available.'], 409));
         $exceptions->render(fn (ProviderApiFailedException $e) => response()->json(['message' => 'The calendar provider request failed.'], 502));
         $exceptions->render(fn (ProviderNotConfiguredException $e) => response()->json(['message' => $e->getMessage() ?: 'Calendar not configured.'], 422));
+        $exceptions->render(fn (ProviderAuthExpiredException $e) => response()->json(['message' => 'Google authorization expired — reconnect the calendar integration.'], 422));
     })->create();
