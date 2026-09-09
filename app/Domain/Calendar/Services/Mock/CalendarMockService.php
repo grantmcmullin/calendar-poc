@@ -23,6 +23,8 @@ class CalendarMockService implements CalendarGatewayContract, CalendarAuthServic
 
     public bool $failProbe = false;
 
+    public bool $failExists = false;
+
     /** @var array<string, CalendarEventDraftData> */
     public array $createdEvents = [];
 
@@ -94,6 +96,10 @@ class CalendarMockService implements CalendarGatewayContract, CalendarAuthServic
 
     public function exists(Integration $integration, string $providerEventId): bool
     {
+        if ($this->failExists) {
+            throw new ProviderApiFailedException('Mock exists failure.');
+        }
+
         return array_key_exists($providerEventId, $this->createdEvents)
             && ! in_array($providerEventId, $this->deletedEventIds, true);
     }
