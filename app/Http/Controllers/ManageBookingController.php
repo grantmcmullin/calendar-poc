@@ -21,7 +21,7 @@ class ManageBookingController extends Controller
             return new BookingResource($booking);
         }
 
-        abort(501); // blade page arrives in Task 17
+        return view('manage', ['booking' => $booking]);
     }
 
     public function cancel(string $token, CancelBookingAction $action): JsonResponse
