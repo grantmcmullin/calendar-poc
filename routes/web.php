@@ -1,16 +1,18 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Demo\DemoController;
 use App\Http\Controllers\Setup\SetupController;
 use App\Http\Controllers\ManageBookingController;
 use App\Http\Controllers\Demo\WebhookSinkController;
 use App\Http\Controllers\Setup\GoogleOAuthController;
 use App\Http\Controllers\Setup\BookingSettingsController;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::redirect('/', '/demo');
 
+Route::get('demo', [DemoController::class, 'show'])->name('demo.show');
+Route::get('demo/feed/deliveries', [DemoController::class, 'deliveries'])->name('demo.feed.deliveries');
+Route::get('demo/feed/bookings', [DemoController::class, 'bookings'])->name('demo.feed.bookings');
 Route::post('demo/webhook-sink', WebhookSinkController::class)->name('demo.webhook-sink');
 
 Route::get('manage/{token}', [ManageBookingController::class, 'show'])->name('manage.show');

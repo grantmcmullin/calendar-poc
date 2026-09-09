@@ -14,7 +14,7 @@
                 <span class="font-semibold">{{ config('app.name', 'Laravel') }}</span>
                 <nav class="flex items-center gap-4 text-sm">
                     <a href="{{ route('setup.show') }}" class="text-gray-700 hover:text-gray-900">Setup</a>
-                    <a href="{{ url('/') }}" class="text-gray-700 hover:text-gray-900">Demo</a>
+                    <a href="{{ route('demo.show') }}" class="text-gray-700 hover:text-gray-900">Demo</a>
                 </nav>
             </div>
         </header>
