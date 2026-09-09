@@ -7,6 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class AvailabilityRequest extends FormRequest
 {
+    /** @return array<string, array<int, string>> */
     public function rules(): array
     {
         return [
@@ -15,6 +16,7 @@ class AvailabilityRequest extends FormRequest
         ];
     }
 
+    /** @return array<int, callable> */
     public function after(): array
     {
         return [function ($validator) {

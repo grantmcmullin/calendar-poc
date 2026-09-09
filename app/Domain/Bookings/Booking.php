@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Domain\Calendar\Data\BusyBlockData;
 use App\Domain\Bookings\Enums\BookingStatus;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Database\Factories\Domain\Bookings\BookingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Booking extends Model
 {
+    /** @use HasFactory<BookingFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -29,11 +31,16 @@ class Booking extends Model
         'canceled_at' => 'immutable_datetime',
     ];
 
+    /** @return BelongsTo<Tenant, $this> */
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
     }
 
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopeConfirmed(Builder $query): Builder
     {
         return $query->where('status', BookingStatus::Confirmed->value);
@@ -49,8 +56,8 @@ class Booking extends Model
         return trim($this->lead_first_name.' '.$this->lead_last_name);
     }
 
-    protected static function newFactory()
+    protected static function newFactory(): BookingFactory
     {
-        return \Database\Factories\Domain\Bookings\BookingFactory::new();
+        return BookingFactory::new();
     }
 }

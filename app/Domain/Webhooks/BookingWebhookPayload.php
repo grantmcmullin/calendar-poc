@@ -8,9 +8,10 @@ use App\Domain\Bookings\Enums\BookingStatus;
 
 class BookingWebhookPayload
 {
+    /** @return array<string, mixed> */
     public static function for(Booking $booking, WebhookEvent $event): array
     {
-        $integrationId = $booking->tenant->integration?->id ?? 0;
+        $integrationId = $booking->tenant->integration->id ?? 0;
 
         return [
             'event' => $event->value,

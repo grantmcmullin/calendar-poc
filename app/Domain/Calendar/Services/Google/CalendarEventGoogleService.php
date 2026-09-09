@@ -43,7 +43,7 @@ class CalendarEventGoogleService implements CalendarEventServiceContract
                 sprintf('calendars/%s/events/%s?sendUpdates=all', $this->calendarId($integration), $providerEventId),
             );
         } catch (RequestException $exception) {
-            if (in_array($exception->response?->status(), [Response::HTTP_NOT_FOUND, Response::HTTP_GONE], true)) {
+            if (in_array($exception->response->status(), [Response::HTTP_NOT_FOUND, Response::HTTP_GONE], true)) {
                 return; // already gone — nothing to delete
             }
 
@@ -58,7 +58,7 @@ class CalendarEventGoogleService implements CalendarEventServiceContract
                 sprintf('calendars/%s/events/%s', $this->calendarId($integration), $providerEventId),
             );
         } catch (RequestException $exception) {
-            if (in_array($exception->response?->status(), [Response::HTTP_NOT_FOUND, Response::HTTP_GONE], true)) {
+            if (in_array($exception->response->status(), [Response::HTTP_NOT_FOUND, Response::HTTP_GONE], true)) {
                 return false;
             }
 

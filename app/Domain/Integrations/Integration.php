@@ -6,9 +6,11 @@ use App\Domain\Tenants\Tenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Database\Factories\Domain\Integrations\IntegrationFactory;
 
 class Integration extends Model
 {
+    /** @use HasFactory<IntegrationFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -26,6 +28,7 @@ class Integration extends Model
 
     protected $hidden = ['api_token', 'refresh_token'];
 
+    /** @return BelongsTo<Tenant, $this> */
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
@@ -55,8 +58,8 @@ class Integration extends Model
         $this->update(['data' => $data]);
     }
 
-    protected static function newFactory()
+    protected static function newFactory(): IntegrationFactory
     {
-        return \Database\Factories\Domain\Integrations\IntegrationFactory::new();
+        return IntegrationFactory::new();
     }
 }

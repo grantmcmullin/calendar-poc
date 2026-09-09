@@ -2,7 +2,7 @@
 
 namespace App\Domain\Calendar\Services\Google;
 
-use Exception;
+use Throwable;
 use Illuminate\Support\Facades\Http;
 use App\Domain\Integrations\Integration;
 use Illuminate\Http\Client\PendingRequest;
@@ -25,10 +25,10 @@ class GoogleClient
         return Http::withToken($this->freshAccessToken($integration))
             ->baseUrl(self::BASE_URL)
             ->throw()
-            ->retry(2, 100, function (Exception $exception, $request) use ($integration): bool {
-                if ($exception instanceof RequestException && $exception->response?->status() === 401) {
+            ->retry(2, 100, function (Throwable $exception, PendingRequest $request) use ($integration): bool {
+                if ($exception instanceof RequestException && $exception->response->status() === 401) {
                     $this->auth->refreshTokens($integration); // throws ProviderAuthExpiredException on failure
-                    $request->withToken($integration->api_token);
+                    $request->withToken((string) $integration->api_token);
 
                     return true;
                 }
@@ -50,8 +50,8 @@ class GoogleClient
     {
         logger()->error('[Calendar] [Google] API request failed', [
             'method' => $method,
-            'status' => $exception->response?->status(),
-            'body' => $exception->response?->body(),
+            'status' => $exception->response->status(),
+            'body' => $exception->response->body(),
         ]);
 
         throw new ProviderApiFailedException("Google {$method} failed: ".$exception->getMessage(), previous: $exception);

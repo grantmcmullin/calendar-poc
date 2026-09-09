@@ -3,12 +3,17 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
+use App\Domain\Bookings\Booking;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * @mixin Booking
+ */
 class BookingResource extends JsonResource
 {
     public static $wrap = null;
 
+    /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
         return [

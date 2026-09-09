@@ -17,11 +17,15 @@ class AvailabilityController extends Controller
     {
         $integration = $tenant->integration;
 
-        abort_if($integration === null, 422, 'No calendar integration is connected for this tenant.');
+        if ($integration === null) {
+            abort(422, 'No calendar integration is connected for this tenant.');
+        }
 
         $settings = $tenant->bookingSettings;
 
-        abort_if($settings === null, 422, 'Booking settings are not configured for this tenant.');
+        if ($settings === null) {
+            abort(422, 'Booking settings are not configured for this tenant.');
+        }
 
         $timezone = $tenant->timezone;
         $fromUtc = CarbonImmutable::parse($request->input('from'), $timezone)->startOfDay()->utc();

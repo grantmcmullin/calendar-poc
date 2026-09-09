@@ -31,12 +31,14 @@ class CreateBookingAction
     ) {
     }
 
+    /** @param array<string, mixed> $tracking */
     public function execute(Tenant $tenant, CarbonImmutable $startTime, InviteeData $invitee, array $tracking, ?Booking $rescheduledFrom = null): Booking
     {
         $integration = $tenant->integration
             ?? throw new ProviderNotConfiguredException('No calendar integration is connected for this tenant.');
 
-        $settings = $tenant->bookingSettings;
+        $settings = $tenant->bookingSettings
+            ?? throw new ProviderNotConfiguredException('Booking settings are not configured for this tenant.');
         $endTime = $startTime->addMinutes($settings->meeting_length_minutes);
         $gateway = $this->manager->for($integration);
 

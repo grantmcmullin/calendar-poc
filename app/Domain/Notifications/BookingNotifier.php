@@ -50,6 +50,7 @@ class BookingNotifier
             : $this->toTenant($booking, 'Appointment reminder', [sprintf('Reminder: %s at %s.', $booking->leadFullName(), $this->tenantLocalTime($booking))]);
     }
 
+    /** @param array<int, string> $lines */
     protected function toLead(Booking $booking, string $subject, array $lines): void
     {
         $this->channels->channel(NotificationChannelType::Mail)->send(new NotificationMessageData(
@@ -61,6 +62,7 @@ class BookingNotifier
         ));
     }
 
+    /** @param array<int, string> $lines */
     protected function toTenant(Booking $booking, string $subject, array $lines): void
     {
         $this->channels->channel(NotificationChannelType::Mail)->send(new NotificationMessageData(
