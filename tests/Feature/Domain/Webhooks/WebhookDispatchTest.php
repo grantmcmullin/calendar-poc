@@ -67,6 +67,29 @@ class WebhookDispatchTest extends TestCase
         $this->assertNotNull($delivery->delivered_at);
     }
 
+    public function test_job_releases_for_retry_and_records_failure_response(): void
+    {
+        Http::fake(['receiver.test/*' => Http::response(['error' => 'boom'], 500)]);
+        $endpoint = WebhookEndpoint::factory()->create(['url' => 'https://receiver.test/hooks', 'secret' => 'shh']);
+        $delivery = WebhookDelivery::factory()->for($endpoint, 'endpoint')->create();
+
+        $job = (new SendWebhookJob($delivery))->withFakeQueueInteractions();
+        $job->handle();
+
+        Http::assertSent(function ($request) {
+            $header = $request->header('Calendar-Service-Signature')[0] ?? '';
+
+            return $request->url() === 'https://receiver.test/hooks'
+                && WebhookSignature::verify('shh', $request->body(), $header);
+        });
+        $delivery->refresh();
+        $this->assertSame(1, $delivery->attempts);
+        $this->assertNotNull($delivery->signature);
+        $this->assertSame(500, $delivery->response_status);
+        $this->assertNull($delivery->delivered_at);
+        $job->assertReleased(delay: 10);
+    }
+
     public function test_sink_route_verifies_signature(): void
     {
         $this->seed(\Database\Seeders\DemoSeeder::class);
