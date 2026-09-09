@@ -8,3 +8,5 @@ Route::get('/', function () {
 });
 
 Route::post('demo/webhook-sink', WebhookSinkController::class)->name('demo.webhook-sink');
+
+Route::get('manage/{token}', fn () => abort(501))->name('manage.show');
