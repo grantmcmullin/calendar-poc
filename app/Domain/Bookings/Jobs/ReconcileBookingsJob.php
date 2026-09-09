@@ -52,7 +52,13 @@ class ReconcileBookingsJob implements ShouldQueue
         }
 
         if ( ! $exists) {
-            app(CancelBookingAction::class)->execute($booking, CancellationSource::Provider);
+            try {
+                app(CancelBookingAction::class)->execute($booking, CancellationSource::Provider);
+            } catch (\Throwable $exception) {
+                logger()->error('[Reconcile] Failed to cancel booking with gone provider event; continuing', [
+                    'booking_id' => $booking->id, 'message' => $exception->getMessage(),
+                ]);
+            }
         }
     }
 }

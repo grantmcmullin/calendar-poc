@@ -5,11 +5,14 @@ namespace Tests\Feature\Domain\Bookings;
 use Tests\TestCase;
 use App\Domain\Tenants\Tenant;
 use App\Domain\Bookings\Booking;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use App\Domain\Integrations\Integration;
+use App\Domain\Bookings\Enums\CancellationSource;
 use App\Domain\Bookings\Jobs\ReconcileBookingsJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Domain\Bookings\Actions\CancelBookingAction;
 use App\Domain\Calendar\Services\Mock\CalendarMockService;
 
 class ReconcileBookingsTest extends TestCase
@@ -68,6 +71,55 @@ class ReconcileBookingsTest extends TestCase
         (new ReconcileBookingsJob())->handle();
 
         $this->assertSame('confirmed', $booking->fresh()->status);
+    }
+
+    public function test_cancellation_failure_for_one_booking_does_not_abort_reconciliation_of_others(): void
+    {
+        $tenant = Tenant::factory()->has(Integration::factory())->create();
+        $first = $this->bookingWithLiveEvent($tenant);
+        $second = $this->bookingWithLiveEvent($tenant);
+        app(CalendarMockService::class)->deletedEventIds[] = $first->provider_event_id;
+        app(CalendarMockService::class)->deletedEventIds[] = $second->provider_event_id;
+
+        // Spy on the real action: throw for the first booking it is asked to cancel
+        // (simulating e.g. a synchronous mail transport failure) and delegate to the
+        // real implementation for every subsequent booking.
+        $real = $this->app->make(CancelBookingAction::class);
+        $attempted = [];
+        $this->app->bind(CancelBookingAction::class, function () use ($real, &$attempted) {
+            return new class($real, $attempted) {
+                private array $attempted;
+
+                public function __construct(private CancelBookingAction $real, array &$attempted)
+                {
+                    $this->attempted = &$attempted;
+                }
+
+                public function execute(Booking $booking, CancellationSource $source): Booking
+                {
+                    $this->attempted[] = $booking->id;
+
+                    if (count($this->attempted) === 1) {
+                        throw new \RuntimeException('Simulated mail transport failure');
+                    }
+
+                    return $this->real->execute($booking, $source);
+                }
+            };
+        });
+
+        Log::shouldReceive('error')->once()->withArgs(function (string $message, array $context) use ($first) {
+            return $message === '[Reconcile] Failed to cancel booking with gone provider event; continuing'
+                && $context['booking_id'] === $first->id
+                && $context['message'] === 'Simulated mail transport failure';
+        });
+
+        (new ReconcileBookingsJob())->handle();
+
+        $this->assertSame([$first->id, $second->id], $attempted);
+        $this->assertSame('confirmed', $first->fresh()->status);
+        $this->assertSame('canceled', $second->fresh()->status);
+        $this->assertSame('provider', $second->fresh()->cancellation_source);
     }
 
     public function test_past_and_eventless_bookings_are_skipped(): void
