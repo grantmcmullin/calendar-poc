@@ -327,10 +327,15 @@ The HTTP layer fetches busy blocks once per request via
 ### `CreateBookingAction`
 1. `DB::transaction` with a per-tenant advisory lock
    (`GET_LOCK("booking:tenant:{id}")`, released after commit): re-validate the slot —
-   grid-valid for current settings **and** no overlapping confirmed booking — then
-   insert the `bookings` row (`confirmed`, uuid + manage_token generated). A failed
-   re-validation throws `SlotConflictException` (→ API 409) — our guard is the only
-   double-booking protection; Google does not conflict-check (§7).
+   grid-valid for current settings, no overlapping confirmed booking, **and** a fresh
+   provider free/busy probe (`availability()->busyBlocks(...)` for just the slot
+   window) confirms the tenant's calendar is still clear — then insert the `bookings`
+   row (`confirmed`, uuid + manage_token generated). Any failed check throws
+   `SlotConflictException` (→ API 409). This mirrors Calendly's booking-time
+   re-check; it matters because Google does not conflict-check on insert (§7). The
+   probe is one HTTP call made while holding the lock — acceptable at POC scale, noted
+   for revisiting under real load. A probe *error* (as opposed to a busy result) aborts
+   the booking as a provider failure (502), never books blind.
 2. After commit, call `events()->create(...)`. On provider failure → delete the row and
    rethrow (API 502). On success → persist `provider_event_id` / `provider_event_link`.
 3. Create reminder rows (§11), send confirmation mails immediately (lead: manage link;
@@ -518,7 +523,9 @@ the SFC directly.)
   `status: "cancelled"`, token exchange/refresh persistence.
 - **Feature (Mock gateway):** availability endpoint (range validation, shape), booking
   happy path (row + provider call + reminders + confirmation mails + webhook job),
-  slot-race 409 (second booking of same slot), cancel (provider delete, reminder
+  slot-race 409 (second booking of same slot), busy-at-booking-time 409 (mock gateway
+  gains a busy block between availability fetch and booking; probe error → 502, no
+  row), cancel (provider delete, reminder
   cleanup, webhook), reschedule (linked rows, canceled+created sequence), reconcile
   (gone event → canceled; provider error → untouched), manage-token resolution +
   invalid token 404, webhook HMAC signature correctness, `SendDueRemindersJob`
