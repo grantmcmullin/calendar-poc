@@ -1,4 +1,4 @@
-# Calendar Service — Google Calendar Booking POC
+# Calendar Service
 
 A proof-of-concept Laravel 12 app that proves Calendly-equivalent booking is achievable
 directly on top of a tenant's own **Google Calendar** — a booking widget, an API a
