@@ -11,6 +11,60 @@ Full design and rationale: [`docs/superpowers/specs/2026-09-09-google-calendar-b
 This is a POC: no auth on the app or its API, a single seeded tenant, and the caveats
 in [Known Caveats](#known-caveats) below.
 
+## Status
+
+**Feature-complete against the spec.** All 18 tasks in the
+[implementation plan](docs/superpowers/plans/2026-09-09-google-calendar-booking-poc.md)
+are done, and the quality gates are green as of 2026-09-18:
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| PHP tests | `php artisan test` | 82 passed, 254 assertions |
+| Widget tests | `npm test` | 6 passed |
+| Formatting | `vendor/bin/pint --test` | passed |
+| Static analysis | `vendor/bin/phpstan analyse --memory-limit=1G` | level 6, no errors |
+
+### Working end to end
+
+- **Google OAuth** connect, disconnect, token refresh, and re-auth flagging (`/setup`).
+- **Availability** — `freeBusy` against the tenant's Google Calendar, intersected with
+  their working hours/meeting length by a pure `AvailabilityCalculator`.
+- **Booking** — create (with a free/busy re-check at commit time and 409 on conflict),
+  cancel, and reschedule, each writing through to the provider calendar.
+- **Lead self-service** — `/manage/{token}` cancel and reschedule, no login.
+- **Webhooks** — `booking.created` / `booking.canceled`, HMAC-signed, retried, and
+  logged in `webhook_deliveries`.
+- **Notifications** — confirmation, cancellation, and T-24h/T-1h reminders by mail.
+- **Reconciliation** — a booking deleted in Google flips to `canceled` within two
+  minutes and fires `booking.canceled`.
+- **Demo surface** — `/demo` widget, live webhook inspector, bookings table, and a
+  CSS-variable theme switcher.
+- **Mock gateway** — the whole flow runs without a Google project
+  (`CALENDAR_GATEWAY=mock`).
+
+### Deliberately not built
+
+- **Microsoft / Office 365 (Graph).** The provider seam is real — gateway contracts,
+  DTOs, `CalendarGatewayManager`, and `IntegrationType::Microsoft` all exist — but
+  resolving that type throws `ProviderNotConfiguredException`. Adding O365 means
+  writing a `Services/Microsoft/` sibling to `Services/Google/`, not restructuring.
+- **SMS.** `SmsChannel` is a wiring point that throws; mail is the only live channel.
+- **Auth, multi-tenancy, rate limiting.** One seeded tenant, open API — see
+  [Known Caveats](#known-caveats).
+
+## Code map
+
+```
+app/Domain/Calendar/      gateway contracts + DTOs, Google services, mock gateway
+app/Domain/Bookings/      Booking model, create/cancel/reschedule actions, reconcile job
+app/Domain/Tenants/       Tenant, BookingSettings (working hours, meeting length, tz)
+app/Domain/Integrations/  Integration model (token storage, al-app shape)
+app/Domain/Webhooks/      payload, HMAC signing, send job, delivery log
+app/Domain/Notifications/ channels, BookingNotifier, reminder scheduling + due job
+app/Http/Controllers/     Api/ (v1), Setup/, Demo/, ManageBooking
+resources/js/widget/      Vue booking widget (BookingWidget, InviteeForm, Confirmation)
+```
+
 ## Prerequisites
 
 - PHP 8.2+ with [Laravel Herd](https://herd.laravel.com/)
@@ -159,8 +213,22 @@ failure never affects the booking itself.
 
 ```bash
 php artisan test
+```
+
+```bash
 nvm use 22.14.0 && npm test
 ```
+
+```bash
+vendor/bin/pint --test
+```
+
+```bash
+vendor/bin/phpstan analyse --memory-limit=1G
+```
+
+PHPStan needs the explicit memory limit — the default 128M crashes its parallel
+workers partway through `app/`.
 
 ## Known Caveats
 
@@ -172,3 +240,7 @@ nvm use 22.14.0 && npm test
 4. No API auth; single tenant seeded; no rate limiting.
 5. Graph free/busy path is work/school-account only; personal-MSA fallback
    (`calendarView`) noted for the O365 build.
+6. `SmsChannel::send()` throws — the channel exists as a wiring point, and every
+   notification in the POC goes out by mail.
+7. Resolving `IntegrationType::Microsoft` throws `ProviderNotConfiguredException`;
+   only Google and the mock gateway are implemented.
